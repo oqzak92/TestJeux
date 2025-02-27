@@ -1,8 +1,9 @@
 import React, { useEffect, useRef } from 'react';
 import * as THREE from 'three';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls';
 import { createGarage } from './map';
+import { loadModel } from './loadModels';
+import { loadModels } from './Model';
 
 function Camera() {
     const mountRef = useRef(null);
@@ -35,28 +36,15 @@ function Camera() {
         const garage = createGarage();
         scene.add(garage);
 
-        // Charger les modèles
-        const modelLoader = new GLTFLoader();
-        modelLoader.load('/model/voiture.glb', (gltf) => {
-            const model = gltf.scene;
-            model.scale.set(4, 4, 4);
-            model.position.set(0, 1.3, 0);
-            scene.add(model);
-        });
 
-        modelLoader.load('/model/AK-47.glb', (gltf) => {
-            const modelAK47 = gltf.scene;
-            modelAK47.scale.set(1, 1, 1);
-            modelAK47.position.set(4, 1.3, 0);
-            scene.add(modelAK47);
-        });
 
-        modelLoader.load('/model/gangster.glb', (gltf) => {
-            const modelGangster = gltf.scene;
-            modelGangster.scale.set(2, 2, 2);
-            modelGangster.position.set(-3.5, 2, 0);
-            scene.add(modelGangster);
-        });
+
+
+        // Charger les modèles avec `loadModel`
+        const { gangster } = loadModels(scene);
+        const { voiture } = loadModels(scene);
+        const { modelAK47 } = loadModels(scene);
+
 
         // Contrôles
         const controls = new PointerLockControls(camera, renderer.domElement);
