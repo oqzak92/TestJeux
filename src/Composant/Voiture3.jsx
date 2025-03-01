@@ -2,9 +2,13 @@ import React, { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls';
+import gsap from "gsap";
 
 function Voiture3() {
     const mountRef = useRef(null);
+    let gangsterModelRef = null; // Variable globale pour stocker le modèle du gangster
+
+
 
     useEffect(() => {
         const scene = new THREE.Scene();
@@ -17,6 +21,7 @@ function Voiture3() {
         // Création de la caméra
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
         camera.position.set(0, 3, 10);
+
 
         // Création du renderer
         const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -58,14 +63,55 @@ function Voiture3() {
 
 
 
-        // Charger le modèle de la Gangster
+        // Charger le modèle du gangster
         const modelLoaderGangster = new GLTFLoader();
         modelLoaderGangster.load('/model/gangster.glb', (gltf) => {
-            const modelGangster = gltf.scene;
-            modelGangster.scale.set(2, 2, 2); // Redimensionner la voiture
-            modelGangster.position.set(-3.5, 2, 0); // Positionner la voiture
-            scene.add(modelGangster);
+            gangsterModelRef = gltf.scene;
+            gangsterModelRef.scale.set(2, 2, 2);
+            gangsterModelRef.position.set(-3.5, 2, 0);
+            scene.add(gangsterModelRef);
         });
+
+        // **Fonctions de mouvement du gangster**
+        const getRandomPosition = (min, max) => Math.random() * (max - min) + min;
+
+        const moveGangsterRandomly = () => {
+            if (!gangsterModelRef) return;
+
+            const newX = getRandomPosition(-50, 50);
+            const newZ = getRandomPosition(-50, 50);
+
+            gsap.to(gangsterModelRef.position, {
+                x: newX,
+                z: newZ,
+                duration: getRandomPosition(1, 2), // Réduit la durée (plus rapide)
+                ease: "power1.inOut",
+                onComplete: moveGangsterRandomly,
+            });
+        };
+
+        const moveGangsterTowardsPlayer = () => {
+            if (!gangsterModelRef || !camera) return;
+
+            const direction = new THREE.Vector3();
+            direction.subVectors(camera.position, gangsterModelRef.position).normalize();
+
+            const newX = gangsterModelRef.position.x + direction.x * getRandomPosition(5, 10); // Augmente la distance parcourue
+            const newZ = gangsterModelRef.position.z + direction.z * getRandomPosition(5, 10);
+
+            gsap.to(gangsterModelRef.position, {
+                x: newX,
+                z: newZ,
+                duration: getRandomPosition(0.5, 1.5), // Réduit la durée pour qu'il bouge plus vite
+                ease: "power1.inOut",
+                onComplete: moveGangsterTowardsPlayer,
+            });
+        };
+
+
+
+
+
 
 
 
@@ -113,8 +159,10 @@ function Voiture3() {
         document.addEventListener('keyup', onKeyUp);
 
         // Animation et mise à jour
-        const animate = () => {
+        const animate = (modelGangster) => {
             requestAnimationFrame(animate);
+
+
 
             const time = performance.now();
             const deltaTime = (time - prevTime) / 1000; // Calcul du temps écoulé
@@ -133,10 +181,19 @@ function Voiture3() {
                 if (moveRight) controls.moveRight(velocityRun);
             }
 
-            
 
+            // Vérifier si le modèle du gangster est chargé avant de calculer la distance
+            if (gangsterModelRef) {
+                const distance = gangsterModelRef.position.distanceTo(camera.position);
+                console.log(distance)
+                if (distance > 10) {
+                    moveGangsterRandomly();
+                } else {
+                    moveGangsterTowardsPlayer();
+                }
+            }
 
-
+            // console.log(camera.position)
             prevTime = time; // Mettre à jour le temps de référence
             renderer.render(scene, camera);
         };
@@ -158,10 +215,10 @@ function Voiture3() {
         const floorTexture = new THREE.TextureLoader().load('/Texture/TextureSol.jpg');
         floorTexture.wrapS = THREE.RepeatWrapping;
         floorTexture.wrapT = THREE.RepeatWrapping;
-        floorTexture.repeat.set(4, 4); // Répéter la texture 4x4 fois
+        floorTexture.repeat.set(40, 40); // Répéter la texture 4x4 fois
 
         const floorMaterial = new THREE.MeshBasicMaterial({ map: floorTexture, side: THREE.DoubleSide });
-        const floor = new THREE.Mesh(new THREE.PlaneGeometry(20, 20), floorMaterial);
+        const floor = new THREE.Mesh(new THREE.PlaneGeometry(200, 200), floorMaterial);
         floor.rotation.x = -Math.PI / 2;
         garage.add(floor);
 
