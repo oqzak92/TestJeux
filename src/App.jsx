@@ -6,7 +6,7 @@ import Jeux from './Composant2/jeux.jsx'
 function App() {
 
   return (
-    <Voiture3 />
+    <Jeux />
   )
 
 

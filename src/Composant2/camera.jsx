@@ -1,12 +1,14 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls';
+import { moveGangsterRandomly, moveGangsterTowardsPlayer } from './IaGangster';
 import { createGarage } from './map';
-import { loadModel } from './loadModels';
-import { loadModels } from './Model';
+import { loadModels } from './loadModels';
+import { AttakIa } from './Attak'
 
-function Camera() {
+function Camera({ setHealth }) {
     const mountRef = useRef(null);
+    const gangsterRef = useRef(null); // Utiliser un ref pour éviter les re-renders
 
     useEffect(() => {
         const scene = new THREE.Scene();
@@ -36,15 +38,16 @@ function Camera() {
         const garage = createGarage();
         scene.add(garage);
 
+        // Charger les modèles
+        loadModels(scene).then(models => {
+            if (models.gangster) {
+                gangsterRef.current = models.gangster;
+                console.log("Gangster chargé :", gangsterRef.current);
 
-
-
-
-        // Charger les modèles avec `loadModel`
-        const { gangster } = loadModels(scene);
-        const { voiture } = loadModels(scene);
-        const { modelAK47 } = loadModels(scene);
-
+                // Lancer le mouvement initial
+                moveGangsterRandomly(gangsterRef.current);
+            }
+        });
 
         // Contrôles
         const controls = new PointerLockControls(camera, renderer.domElement);
@@ -79,10 +82,13 @@ function Camera() {
         document.addEventListener('keydown', onKeyDown);
         document.addEventListener('keyup', onKeyUp);
 
+
+        let lastAttackTime = 0; // Moment de la dernière attaque
+        const attackDelay = 2300; // Délai en millisecondes entre les attaques
+
         // Animation
         const animate = () => {
             requestAnimationFrame(animate);
-
             const time = performance.now();
             const deltaTime = (time - prevTime) / 1000;
             const velocity = moveSpeed * deltaTime;
@@ -99,10 +105,32 @@ function Camera() {
                 if (moveRight) controls.moveRight(velocityRun);
             }
 
+
+
+
+            // Vérifier si le modèle du gangster est chargé avant de calculer la distance
+            if (gangsterRef.current) {
+                const distance = gangsterRef.current.position.distanceTo(camera.position);
+                console.log("Distance du gangster au joueur :", distance);
+
+                if (distance <= 10) {
+                    moveGangsterTowardsPlayer(gangsterRef.current, camera);
+                    if (distance <= 2) {
+                        console.log("il frappe ")
+                        // Vérifie si le délai entre les attaques est écoulé
+                        if (time - lastAttackTime >= attackDelay) {
+                            lastAttackTime = time; // Mise à jour du moment de la dernière attaque
+                            AttakIa({ setHealth });
+                        }
+                    }
+                }
+            } else {
+                console.log("Gangster pas encore chargé...");
+            }
+
             prevTime = time;
             renderer.render(scene, camera);
         };
-
         animate();
 
         return () => {
@@ -111,7 +139,7 @@ function Camera() {
             mountRef.current.removeChild(renderer.domElement);
             renderer.dispose();
         };
-    }, []);
+    }, []); // Pas de dépendance pour éviter les re-renders infinis
 
     return <div ref={mountRef} />;
 }

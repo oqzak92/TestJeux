@@ -84,29 +84,33 @@ function Voiture3() {
             gsap.to(gangsterModelRef.position, {
                 x: newX,
                 z: newZ,
-                duration: getRandomPosition(1, 2), // Réduit la durée (plus rapide)
+                duration: getRandomPosition(0.5, 1), // Réduction du temps pour plus de vitesse
                 ease: "power1.inOut",
                 onComplete: moveGangsterRandomly,
             });
         };
 
+
+
+        // suie le joueur 
         const moveGangsterTowardsPlayer = () => {
             if (!gangsterModelRef || !camera) return;
 
             const direction = new THREE.Vector3();
             direction.subVectors(camera.position, gangsterModelRef.position).normalize();
 
-            const newX = gangsterModelRef.position.x + direction.x * getRandomPosition(5, 10); // Augmente la distance parcourue
-            const newZ = gangsterModelRef.position.z + direction.z * getRandomPosition(5, 10);
+            const newX = gangsterModelRef.position.x + direction.x * getRandomPosition(10, 20); // Distance augmentée
+            const newZ = gangsterModelRef.position.z + direction.z * getRandomPosition(10, 20);
 
             gsap.to(gangsterModelRef.position, {
                 x: newX,
                 z: newZ,
-                duration: getRandomPosition(0.5, 1.5), // Réduit la durée pour qu'il bouge plus vite
+                duration: getRandomPosition(0.3, 0.8), // Réduction du temps pour plus de vitesse
                 ease: "power1.inOut",
                 onComplete: moveGangsterTowardsPlayer,
             });
         };
+
 
 
 
@@ -159,7 +163,7 @@ function Voiture3() {
         document.addEventListener('keyup', onKeyUp);
 
         // Animation et mise à jour
-        const animate = (modelGangster) => {
+        const animate = () => {
             requestAnimationFrame(animate);
 
 

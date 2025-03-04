@@ -8,7 +8,7 @@ function Jeux() {
 
     return (
         <div>
-            <Camera />
+            <Camera setHealth={setHealth} />
             <PlayerHealth health={health} setHealth={setHealth} />
             <Inventaire setHealth={setHealth} />
         </div>
