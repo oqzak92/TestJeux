@@ -92,7 +92,7 @@ function Voiture3() {
 
 
 
-        // suie le joueur 
+        // suit le joueur 
         const moveGangsterTowardsPlayer = () => {
             if (!gangsterModelRef || !camera) return;
 

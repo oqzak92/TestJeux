@@ -7,10 +7,10 @@ export function createGarage() {
     const floorTexture = new THREE.TextureLoader().load('/Texture/TextureSol.jpg');
     floorTexture.wrapS = THREE.RepeatWrapping;
     floorTexture.wrapT = THREE.RepeatWrapping;
-    floorTexture.repeat.set(4, 4);
+    floorTexture.repeat.set(40, 40);
 
     const floorMaterial = new THREE.MeshBasicMaterial({ map: floorTexture, side: THREE.DoubleSide });
-    const floor = new THREE.Mesh(new THREE.PlaneGeometry(20, 20), floorMaterial);
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(200, 200), floorMaterial);
     floor.rotation.x = -Math.PI / 2;
     garage.add(floor);
 

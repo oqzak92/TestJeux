@@ -1,14 +1,12 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls';
-import { moveGangsterRandomly, moveGangsterTowardsPlayer } from './IaGangster';
 import { createGarage } from './map';
 import { loadModels } from './loadModels';
-import { AttakIa } from './Attak'
 
 function Camera({ setHealth }) {
-    const mountRef = useRef(null);
-    const gangsterRef = useRef(null); // Utiliser un ref pour éviter les re-renders
+    const mountRef = useRef(null);  // Référence pour le montage du renderer
+    const gangsterRef = useRef(null);  // Référence pour le gangster chargé
 
     useEffect(() => {
         const scene = new THREE.Scene();
@@ -25,7 +23,7 @@ function Camera({ setHealth }) {
         // Création du renderer
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
-        mountRef.current.appendChild(renderer.domElement);
+        mountRef.current.appendChild(renderer.domElement); // Attacher le renderer au DOM
 
         // Lumières
         const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
@@ -43,9 +41,6 @@ function Camera({ setHealth }) {
             if (models.gangster) {
                 gangsterRef.current = models.gangster;
                 console.log("Gangster chargé :", gangsterRef.current);
-
-                // Lancer le mouvement initial
-                moveGangsterRandomly(gangsterRef.current);
             }
         });
 
@@ -54,10 +49,11 @@ function Camera({ setHealth }) {
         scene.add(controls.getObject());
         document.addEventListener('click', () => controls.lock());
 
-        // Déplacement
-        let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false, moveSpeedButton = false;
+        // Variables de déplacement
+        let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false, moveSpeedButton = false, moveSquat = false;
         let prevTime = performance.now();
         const moveSpeed = 5, moveSpeedRun = 10;
+        const Squat = camera.position.set(0, 1.5, 10);
 
         const onKeyDown = (event) => {
             switch (event.key) {
@@ -66,6 +62,7 @@ function Camera({ setHealth }) {
                 case 'a': moveLeft = true; break;
                 case 'd': moveRight = true; break;
                 case 'Shift': moveSpeedButton = true; break;
+                case 'c': moveSquat = true; break;
             }
         };
 
@@ -76,24 +73,29 @@ function Camera({ setHealth }) {
                 case 'a': moveLeft = false; break;
                 case 'd': moveRight = false; break;
                 case 'Shift': moveSpeedButton = false; break;
+                case 'c': moveSquat = false; break;
             }
         };
 
+        // Ajouter les événements pour le déplacement
         document.addEventListener('keydown', onKeyDown);
         document.addEventListener('keyup', onKeyUp);
 
-
-        let lastAttackTime = 0; // Moment de la dernière attaque
-        const attackDelay = 2300; // Délai en millisecondes entre les attaques
+        // Intervalle pour l'attaque ou d'autres comportements réguliers
+        const Julien = setInterval(() => {
+            console.log("Ce message s'affiche toutes les 2 secondes !");
+        }, 2000);
 
         // Animation
         const animate = () => {
             requestAnimationFrame(animate);
+
             const time = performance.now();
             const deltaTime = (time - prevTime) / 1000;
             const velocity = moveSpeed * deltaTime;
             const velocityRun = moveSpeedRun * deltaTime;
 
+            // Déplacement du joueur
             if (moveForward) controls.moveForward(velocity);
             if (moveBackward) controls.moveForward(-velocity);
             if (moveLeft) controls.moveRight(-velocity);
@@ -105,43 +107,46 @@ function Camera({ setHealth }) {
                 if (moveRight) controls.moveRight(velocityRun);
             }
 
-
-
-
-            // Vérifier si le modèle du gangster est chargé avant de calculer la distance
-            if (gangsterRef.current) {
-                const distance = gangsterRef.current.position.distanceTo(camera.position);
-                console.log("Distance du gangster au joueur :", distance);
-
-                if (distance <= 10) {
-                    moveGangsterTowardsPlayer(gangsterRef.current, camera);
-                    if (distance <= 2) {
-                        console.log("il frappe ")
-                        // Vérifie si le délai entre les attaques est écoulé
-                        if (time - lastAttackTime >= attackDelay) {
-                            lastAttackTime = time; // Mise à jour du moment de la dernière attaque
-                            AttakIa({ setHealth });
-                        }
-                    }
-                }
-            } else {
-                console.log("Gangster pas encore chargé...");
-            }
-
             prevTime = time;
             renderer.render(scene, camera);
         };
         animate();
 
+        // Nettoyage à la destruction du composant
         return () => {
+            // Supprimer les écouteurs d'événements
             document.removeEventListener('keydown', onKeyDown);
             document.removeEventListener('keyup', onKeyUp);
-            mountRef.current.removeChild(renderer.domElement);
+
+            // Vérifier si mountRef.current existe avant de tenter de manipuler le DOM
+            if (mountRef.current && renderer.domElement) {
+                mountRef.current.removeChild(renderer.domElement); // Supprimer l'élément du DOM
+            }
+
+            // Nettoyage du renderer
             renderer.dispose();
+
+            // Nettoyage de l'intervalle
+            clearInterval(Julien);
+
+            // Nettoyage de la scène (dispose des géométries et matériaux)
+            scene.traverse((object) => {
+                if (object.geometry) object.geometry.dispose();
+                if (object.material) {
+                    if (Array.isArray(object.material)) {
+                        object.material.forEach((mat) => mat.dispose());
+                    } else {
+                        object.material.dispose();
+                    }
+                }
+            });
+
+            // Désactiver les contrôles (si nécessaire)
+            controls.unlock();
         };
     }, []); // Pas de dépendance pour éviter les re-renders infinis
 
-    return <div ref={mountRef} />;
+    return <div ref={mountRef} />; // Attacher le div de montage au DOM
 }
 
 export default Camera;
