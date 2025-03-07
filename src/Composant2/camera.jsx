@@ -3,10 +3,12 @@ import * as THREE from 'three';
 import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls';
 import { createGarage } from './map';
 import { loadModels } from './loadModels';
+import * as CANNON from 'cannon-es';  // Importer cannon.js
 
 function Camera({ setHealth }) {
     const mountRef = useRef(null);  // Référence pour le montage du renderer
     const gangsterRef = useRef(null);  // Référence pour le gangster chargé
+    const playerBodyRef = useRef(null);  // Référence pour le corps du joueur dans cannon.js
 
     useEffect(() => {
         const scene = new THREE.Scene();
@@ -31,6 +33,16 @@ function Camera({ setHealth }) {
         const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
         directionalLight.position.set(2, 5, 2);
         scene.add(directionalLight);
+
+        // partie physique
+
+
+        // creation du monde py et de la graviter
+        const World = new CANNON.World();
+        World.gravity.set(0, -9.82, 0);
+
+
+
 
         // Ajouter le garage
         const garage = createGarage();
