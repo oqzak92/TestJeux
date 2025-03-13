@@ -3,293 +3,384 @@ import * as THREE from 'three';
 import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls';
 import { createGarage } from './map';
 import { loadModels } from './loadModels';
-import * as CANNON from 'cannon-es';  // Importer cannon.js
+import * as CANNON from 'cannon-es';
 
 function Camera({ setHealth }) {
     const mountRef = useRef(null);
     const gangsterRef = useRef(null);
     const playerBodyRef = useRef(null);
+    const controlsRef = useRef(null);
+    const cameraHeightRef = useRef(0.9);
 
     useEffect(() => {
+        // ===== INITIALISATION DE BASE =====
         const scene = new THREE.Scene();
-
-
-
-
-
-        // Charger la texture de fond (ciel)
         const loader = new THREE.TextureLoader();
         const skyTexture = loader.load('/Texture/skyTexture.jpg');
         scene.background = skyTexture;
 
-
-
-
-
-        // Création de la caméra
+        // Configuration de la caméra
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
         camera.position.set(0, 3, 10);
 
-
-
-
-        // Création du renderer
+        // Configuration du renderer
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
         mountRef.current.appendChild(renderer.domElement);
 
+        // Redimensionnement de la fenêtre
+        const handleResize = () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        };
+        window.addEventListener('resize', handleResize);
 
-
-
-
-        // Lumières
+        // Éclairage
         const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
         scene.add(ambientLight);
         const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
         directionalLight.position.set(2, 5, 2);
+        directionalLight.castShadow = true;
         scene.add(directionalLight);
 
-
-
-
-
-
-        // Monde physique
+        // ===== PHYSIQUE =====
         const world = new CANNON.World();
-        world.gravity.set(0, -9.82, 0);
+        world.gravity.set(0, -30, 0); // Gravité plus forte pour éviter le flottement
+        world.allowSleep = false;
+        world.solver.iterations = 20; // Plus d'itérations pour une meilleure stabilité
 
-
-
-
+        // Matériaux
+        const groundMaterial = new CANNON.Material("groundMaterial");
+        const playerMaterial = new CANNON.Material("playerMaterial");
+        const contactMaterial = new CANNON.ContactMaterial(playerMaterial, groundMaterial, {
+            friction: 0.5,           // Plus de friction pour éviter le glissement
+            restitution: 0.0,        // Pas de rebond
+            contactEquationStiffness: 1e8,
+            contactEquationRelaxation: 3,
+            frictionEquationStiffness: 1e8 // Meilleure adhérence
+        });
+        world.addContactMaterial(contactMaterial);
 
         // Sol physique
         const groundBody = new CANNON.Body({
             mass: 0,
+            type: CANNON.Body.STATIC,
             shape: new CANNON.Plane(),
-            position: new CANNON.Vec3(0, 2, 0)
+            material: groundMaterial
         });
         groundBody.quaternion.setFromEuler(-Math.PI / 2, 0, 0);
         world.addBody(groundBody);
 
-
-
-
-
-        // Physique joueur
-        const playerShape = new CANNON.Cylinder(0.5, 0.5, 1, 8); // Cylindre hauteur 1, rayon 0.5
-        const playerShape2 = new CANNON.Sphere(1)
+        // Corps du joueur (cylindre)
+        const playerShape = new CANNON.Cylinder(0.4, 0.4, 1.0, 16);
         const playerBody = new CANNON.Body({
-            mass: 1,
-            position: new CANNON.Vec3(0, 3, 10),
-            fixedRotation: true,  // Empêche les rotations
-            angularDamping: 1,    // Évite qu'il ne tourne en glissant
+            mass: 80,
+            material: playerMaterial,
+            shape: playerShape,
+            position: new CANNON.Vec3(0, 5, 10),
+            linearDamping: 0.7,       // Plus d'amortissement pour limiter la glisse
+            angularDamping: 0.99,
+            fixedRotation: true,      // Empêche le cylindre de tomber
+            allowSleep: false
         });
-        playerBody.addShape(playerShape);
+
+        // Ajouter une forte friction pour éviter la glisse
+        playerBody.material = playerMaterial;
+
+        // Ajouter des détecteurs de collision
+        playerBody.addEventListener("collide", (e) => {
+            // Optionnellement, tu peux ajouter un son ou un effet visuel lors des collisions
+            console.log("Collision détectée");
+        });
+
         world.addBody(playerBody);
+        playerBodyRef.current = playerBody;
 
-
-
-
-
-
-
-        let canJump = false;
-        const jumpStrength = 20;
-
-
-
-
-        // Détection de collision avec le sol
-        playerBody.addEventListener('collide', (event) => {
-            if (event.body === groundBody) {
-                canJump = true;
-            }
-        });
-
-
-
-
-        // Ajouter le garage avec la physique
+        // ===== CRÉATION DE L'ENVIRONNEMENT =====
         const garage = createGarage(world);
         scene.add(garage);
 
-
-
-
-
-        // Charger les modèles
         loadModels(scene).then(models => {
             if (models.gangster) {
                 gangsterRef.current = models.gangster;
-                console.log("Gangster chargé :", gangsterRef.current);
             }
         });
 
-
-
-
-        // Contrôles
+        // ===== CONTRÔLES =====
         const controls = new PointerLockControls(camera, renderer.domElement);
+        controlsRef.current = controls;
         scene.add(controls.getObject());
+
         document.addEventListener('click', () => controls.lock());
 
+        // État des mouvements
+        const movement = {
+            forward: false,
+            backward: false,
+            left: false,
+            right: false,
+            sprint: false,
+            crouch: false,
+            jumping: false
+        };
 
+        // Vitesses et paramètres de déplacement
+        const SPEED = {
+            walk: 7,         // Vitesse de marche réduite
+            run: 140,          // Vitesse de course réduite
+            crouch: 15,       // Vitesse accroupie réduite
+            jump: 1300,        // Force de saut réduite
+            airControl: 0.2,   // Contrôle en l'air limité
+            jumpAirSpeed: 7
+        };
 
-
-
-        // Variables de déplacement
-        let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false, moveSpeedButton = false, moveSquat = false;
+        // Variables d'état
+        let canJump = false;
+        let isCrouching = false;
         let prevTime = performance.now();
-        let moveSpeed = 5, moveSpeedRun = 15, squatSpeed = 2.5;
+        let diagonalSpeed = 0.7071; // 1/sqrt(2) pour normaliser la vitesse diagonale
 
+        // Fonction pour vérifier si le joueur touche le sol
+        const checkGround = () => {
+            // Réduisez légèrement la longueur du rayon pour une détection plus précise
+            const rayLength = 0.6; // Distance depuis le centre du joueur jusqu'au bas du cylindre + une petite marge
+            const start = new CANNON.Vec3(playerBody.position.x, playerBody.position.y, playerBody.position.z);
+            const end = new CANNON.Vec3(playerBody.position.x, playerBody.position.y - rayLength, playerBody.position.z);
+            const result = new CANNON.RaycastResult();
+            world.raycastClosest(start, end, {}, result);
+            return result.hasHit;
+        };
 
+        // Gestion de l'accroupissement
+        const crouch = () => {
+            if (!isCrouching) {
+                isCrouching = true;
+                cameraHeightRef.current = 0.150;
 
+                // Modifier la forme du corps (plus petit)
+                const crouchShape = new CANNON.Cylinder(0.4, 0.4, 0.4, 16);
+                playerBody.shapes[0] = crouchShape;
+                playerBody.updateMassProperties();
+            }
+        };
 
+        const standUp = () => {
+            if (isCrouching) {
+                isCrouching = false;
+                cameraHeightRef.current = 0.9;
 
+                // Revenir à la forme normale
+                const standShape = new CANNON.Cylinder(0.4, 0.4, 1.0, 16);
+                playerBody.shapes[0] = standShape;
+                playerBody.updateMassProperties();
+            }
+        };
+
+        // Gestion des contrôles clavier
         const onKeyDown = (event) => {
-            switch (event.key) {
-                case 'w': moveForward = true; break;
-                case 's': moveBackward = true; break;
-                case 'a': moveLeft = true; break;
-                case 'd': moveRight = true; break;
-                case 'Shift': moveSpeedButton = true; UpdateSpeed(); break;
-                case 'c': moveSquat = true; UpdateSpeed(); break;
-                case ' ':
-                    if (canJump) {
-                        playerBody.velocity.y = jumpStrength;
-                        canJump = false;
+            // Éviter que les événements se déclenchent pendant la saisie de texte
+            if (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA') return;
+
+            switch (event.code) {
+                case 'KeyW':
+                    movement.forward = true;
+                    break;
+                case 'KeyS':
+                    movement.backward = true;
+                    break;
+                case 'KeyA':
+                    movement.left = true;
+                    break;
+                case 'KeyD':
+                    movement.right = true;
+                    break;
+                case 'ShiftLeft':
+                    if (!isCrouching) {
+                        movement.sprint = true;
+                    }
+                    break;
+                case 'KeyC':
+                    crouch();
+                    movement.crouch = true;
+                    break;
+                case 'Space':
+                    // Vérifiez explicitement que le joueur touche le sol avant d'autoriser un saut
+                    if (checkGround() && !movement.jumping && !isCrouching) {
+                        movement.jumping = true;
+                        playerBody.velocity.y = 0; // Réinitialiser la vitesse verticale avant le saut
+                        playerBody.applyImpulse(
+                            new CANNON.Vec3(0, SPEED.jump, 0),
+                            playerBody.position
+                        );
                     }
                     break;
             }
         };
 
-
-
-
-
-
         const onKeyUp = (event) => {
-            switch (event.key) {
-                case 'w': moveForward = false; break;
-                case 's': moveBackward = false; break;
-                case 'a': moveLeft = false; break;
-                case 'd': moveRight = false; break;
-                case 'Shift': moveSpeedButton = false; UpdateSpeed(); break;
-                case 'c': moveSquat = false; UpdateSpeed(); break;
-            }
-        };
+            if (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA') return;
 
-
-
-
-        const setPlayerShape = (height) => {
-            // Récupérer l'ancienne hauteur
-            const oldHeight = playerBody.shapes[0].height;
-
-            // Créer une nouvelle forme
-            const newShape = new CANNON.Cylinder(0.5, 0.5, height, 8);
-
-            // Supprimer l’ancienne et ajouter la nouvelle
-            playerBody.shapes = [];
-            playerBody.addShape(newShape);
-            playerBody.updateBoundingRadius();
-
-            // Ajuster la hauteur sans provoquer de saut
-            playerBody.position.y -= (oldHeight - height) * 0.5;
-
-            // Empêcher la vélocité de provoquer un rebond
-            playerBody.velocity.y = 0;
-        };
-
-
-
-
-
-
-        const UpdateSpeed = () => {
-            if (moveSquat) {
-                moveSpeed = squatSpeed;
-                setPlayerShape(0.5)
-            } else if (moveSpeedButton) {
-                moveSpeed = moveSpeedRun;
-                setPlayerShape(1)
-            } else {
-                moveSpeed = 5;
-                setPlayerShape(1)
+            switch (event.code) {
+                case 'KeyW':
+                    movement.forward = false;
+                    break;
+                case 'KeyS':
+                    movement.backward = false;
+                    break;
+                case 'KeyA':
+                    movement.left = false;
+                    break;
+                case 'KeyD':
+                    movement.right = false;
+                    break;
+                case 'ShiftLeft':
+                    movement.sprint = false;
+                    break;
+                case 'KeyC':
+                    standUp();
+                    movement.crouch = false;
+                    break;
             }
         };
 
         document.addEventListener('keydown', onKeyDown);
         document.addEventListener('keyup', onKeyUp);
 
-        // Intervalle "Julien"
+        // Intervalle pour l'attaque ou d'autres comportements réguliers
         const Julien = setInterval(() => {
             console.log("Ce message s'affiche toutes les 2 secondes !");
         }, 2000);
 
+
+
+
+        // ===== BOUCLE D'ANIMATION =====
         const animate = () => {
             requestAnimationFrame(animate);
 
-            const time = performance.now();
-            const deltaTime = (time - prevTime) / 1000;
-            prevTime = time;
+            const deltaTime = Math.min((performance.now() - prevTime) / 1000, 0.1);
+            prevTime = performance.now();
 
-            world.step(1 / 60);
+            // Mise à jour de la physique
+            world.step(1 / 60, deltaTime, 3);
 
-            // Gestion des déplacements
-            const moveForce = 250;
-            let currentSpeed = moveSpeedButton ? moveForce * 2 : moveForce;
+            // Vérification du sol
+            canJump = checkGround();
+            if (canJump) {
+                movement.jumping = false;
+            }
 
-            let moveX = 0, moveZ = 0;
-            if (moveBackward) moveZ -= currentSpeed * deltaTime;
-            if (moveForward) moveZ += currentSpeed * deltaTime;
-            if (moveRight) moveX -= currentSpeed * deltaTime;
-            if (moveLeft) moveX += currentSpeed * deltaTime;
-
+            // Calcul de la direction de déplacement
             const direction = new THREE.Vector3();
-            camera.getWorldDirection(direction);
+            controls.getObject().getWorldDirection(direction);
+            direction.y = 0;
+            direction.normalize();
 
-            const forceX = direction.x * moveZ + direction.z * moveX;
-            const forceZ = direction.z * moveZ - direction.x * moveX;
+            const right = new THREE.Vector3();
+            right.crossVectors(new THREE.Vector3(0, 1, 0), direction);
+            right.normalize();
 
-            playerBody.velocity.set(forceX, playerBody.velocity.y, forceZ);
+            const moveDir = new THREE.Vector3(0, 0, 0);
+            let movementCount = 0;
 
-            // Synchroniser la caméra avec le joueur
-            controls.object.position.copy(playerBody.position);
-            controls.object.position.y += 0.5;
+            if (movement.forward) {
+                moveDir.add(direction);
+                movementCount++;
+            }
+            if (movement.backward) {
+                moveDir.sub(direction);
+                movementCount++;
+            }
+            if (movement.left) {
+                moveDir.add(right);
+                movementCount++;
+            }
+            if (movement.right) {
+                moveDir.sub(right);
+                movementCount++;
+            }
 
+            // Normaliser le vecteur de mouvement pour éviter d'aller plus vite en diagonale
+            if (moveDir.length() > 0) {
+                moveDir.normalize();
+
+                // Vitesse en fonction de l'état
+                let speed;
+                if (movement.crouch) {
+                    speed = SPEED.crouch;
+                } else if (movement.sprint && canJump) {
+                    speed = SPEED.run;
+                } else {
+                    speed = SPEED.walk;
+                }
+
+                // Contrôle limité en l'air
+                if (!canJump) {
+                    // Appliquer moins de force en l'air pour un meilleur contrôle
+                    speed *= SPEED.airControl;
+
+
+                    // Appliquer une impulsion douce plutôt que de modifier directement la vélocité
+                    const impulse = new CANNON.Vec3(
+                        moveDir.x * speed * deltaTime,
+                        0,
+                        moveDir.z * speed * deltaTime
+                    );
+                    playerBody.applyImpulse(impulse, playerBody.position);
+                } else {
+                    // Au sol, contrôle direct de la vélocité
+                    playerBody.velocity.x = moveDir.x * speed;
+                    playerBody.velocity.z = moveDir.z * speed;
+                }
+            } else if (canJump) {
+                // Arrêt du mouvement horizontal seulement si on est au sol
+                playerBody.velocity.x *= 0.9; // Décélération progressive
+                playerBody.velocity.z *= 0.9;
+
+                // Si la vitesse est très faible, l'arrêter complètement
+                if (Math.abs(playerBody.velocity.x) < 0.1) playerBody.velocity.x = 0;
+                if (Math.abs(playerBody.velocity.z) < 0.1) playerBody.velocity.z = 0;
+            }
+
+            // Limiter la vitesse maximale pour éviter les bugs physiques
+            const horizontalVelocity = Math.sqrt(
+                playerBody.velocity.x * playerBody.velocity.x +
+                playerBody.velocity.z * playerBody.velocity.z
+            );
+
+            const maxSpeed = movement.sprint ? SPEED.run * 1.2 : SPEED.walk * 1.2;
+
+            if (horizontalVelocity > maxSpeed) {
+                const scale = maxSpeed / horizontalVelocity;
+                playerBody.velocity.x *= scale;
+                playerBody.velocity.z *= scale;
+            }
+
+            // Mise à jour de la position de la caméra
+            camera.position.copy(playerBody.position);
+            camera.position.y += cameraHeightRef.current;
+            controls.getObject().position.copy(camera.position);
+
+            // Rendu de la scène
             renderer.render(scene, camera);
         };
 
         animate();
 
-        // Nettoyage à la destruction du composant
+        // Nettoyage lors du démontage
         return () => {
             document.removeEventListener('keydown', onKeyDown);
             document.removeEventListener('keyup', onKeyUp);
+            window.removeEventListener('resize', handleResize);
             if (mountRef.current && renderer.domElement) {
                 mountRef.current.removeChild(renderer.domElement);
             }
-            renderer.dispose();
-            clearInterval(Julien);
-
-            scene.traverse((object) => {
-                if (object.geometry) object.geometry.dispose();
-                if (object.material) {
-                    if (Array.isArray(object.material)) {
-                        object.material.forEach((mat) => mat.dispose());
-                    } else {
-                        object.material.dispose();
-                    }
-                }
-            });
-
-            world.removeBody(playerBody);
-            world.removeBody(groundBody);
         };
-    }, []);
+    }, [setHealth]);
 
-    return <div ref={mountRef} />;
+    return <div ref={mountRef} style={{ width: '100%', height: '100vh' }} />;
 }
 
 export default Camera;
