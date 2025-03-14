@@ -44,7 +44,8 @@ export function createGarage(physicsWorld) {
         { size: [20, 5, 0.5], position: [0, 2.5, -10], rotation: [0, 0, 0] },  // Mur arrière
         { size: [10, 5, 0.5], position: [-10, 2.5, 0], rotation: [0, Math.PI / 2, 0] }, // Mur gauche
         { size: [10, 5, 0.5], position: [10, 2.5, 0], rotation: [0, -Math.PI / 2, 0] }, // Mur droit
-        { size: [10, 5, 0.5], position: [20, 5, -10], rotation: [0, Math.PI / 2, 0] } // Mur squat
+        { size: [10, 5, 0.5], position: [20, 5, -10], rotation: [0, Math.PI / 2, 0] }, // Mur squat
+        { size: [10, 1, 1.5], position: [0, 1, 20], rotation: [0, 0, 0] }// mur aleatoire 
     ];
 
     walls.forEach(({ size, position, rotation }) => {
@@ -107,3 +108,32 @@ export function createGarage(physicsWorld) {
 
     return garage;
 }
+
+
+
+// =======================
+// 🔹 Rappel X, Y, Z :
+// =======================
+
+
+// Position -X : Gauche
+// Position X : Droite
+
+// Position Y : Haut/Bas
+
+// Position -Z : Devant, Avancer
+// Position Z : Arrière, Reculer
+
+
+
+// ============================================
+// 🔹 Rappel Des Tailles Creation Des Murs :
+// ============================================
+
+// Size X : Longueur Du Rectangle
+// Size Y : Largeur Du Rectangle
+// Size Z : Base, Volume Rectangle
+
+
+
+

@@ -128,7 +128,7 @@ function Camera({ setHealth }) {
 
         // Vitesses et paramètres de déplacement
         const SPEED = {
-            walk: 7,         // Vitesse de marche réduite
+            walk: 70,         // Vitesse de marche réduite
             run: 140,          // Vitesse de course réduite
             crouch: 15,       // Vitesse accroupie réduite
             jump: 1300,        // Force de saut réduite
@@ -152,6 +152,14 @@ function Camera({ setHealth }) {
             world.raycastClosest(start, end, {}, result);
             return result.hasHit;
         };
+
+        const Melissa = () => {
+            if (playerBody.position.y <= 2.50) {
+                const jumpForce = new CANNON.Vec3(0, 1300, 0); // Force ajustable
+                playerBody.applyImpulse(jumpForce, playerBody.position);
+
+            }
+        }
 
         // Gestion de l'accroupissement
         const crouch = () => {
@@ -206,15 +214,17 @@ function Camera({ setHealth }) {
                     movement.crouch = true;
                     break;
                 case 'Space':
-                    // Vérifiez explicitement que le joueur touche le sol avant d'autoriser un saut
-                    if (checkGround() && !movement.jumping && !isCrouching) {
-                        movement.jumping = true;
-                        playerBody.velocity.y = 0; // Réinitialiser la vitesse verticale avant le saut
-                        playerBody.applyImpulse(
-                            new CANNON.Vec3(0, SPEED.jump, 0),
-                            playerBody.position
-                        );
-                    }
+
+                    // // Vérifiez explicitement que le joueur touche le sol avant d'autoriser un saut
+                    // movement.jumping = true;
+                    // playerBody.velocity.y = 0; // Réinitialiser la vitesse verticale avant le saut
+                    // playerBody.applyImpulse(
+                    //     new CANNON.Vec3(0, SPEED.jump, 0),
+                    //     playerBody.position
+                    // );
+
+                    Melissa()
+
                     break;
             }
         };
@@ -255,10 +265,16 @@ function Camera({ setHealth }) {
 
 
 
+        const Nabil = setInterval(() => {
+            console.log("position X :  " + playerBody.position.x + ", " + "position Y : " + playerBody.position.y + ", " + "Position Z : " + playerBody.position.z)
+        }, 2000);
+
 
         // ===== BOUCLE D'ANIMATION =====
         const animate = () => {
             requestAnimationFrame(animate);
+
+
 
             const deltaTime = Math.min((performance.now() - prevTime) / 1000, 0.1);
             prevTime = performance.now();
@@ -317,7 +333,7 @@ function Camera({ setHealth }) {
                 }
 
                 // Contrôle limité en l'air
-                if (!canJump) {
+                if (playerBody.position.y >= 2.50) {
                     // Appliquer moins de force en l'air pour un meilleur contrôle
                     speed *= SPEED.airControl;
 
