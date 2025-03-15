@@ -4,6 +4,7 @@ import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockCont
 import { createGarage } from './map';
 import { loadModels } from './loadModels';
 import * as CANNON from 'cannon-es';
+import { createBuilding } from './Map/Bulding';
 
 function Camera({ setHealth }) {
     const mountRef = useRef(null);
@@ -101,6 +102,13 @@ function Camera({ setHealth }) {
         // ===== CRÉATION DE L'ENVIRONNEMENT =====
         const garage = createGarage(world);
         scene.add(garage);
+
+
+        // =======================
+        // 🔹 Ajout de l'Immeuble
+        // =======================
+        // const building = createBuilding(world);
+        // scene.add(building);
 
         loadModels(scene).then(models => {
             if (models.gangster) {

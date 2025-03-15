@@ -111,28 +111,146 @@ export function createGarage(physicsWorld) {
 
 
 
+
+// =======================
+// 🔹 Création des Formes en Three.js
+// =======================
+
+
+
+
+    // =======================
+    // 🔹 Cube / Boîte (BoxGeometry)
+    // =======================
+// 📌 Un cube est un objet 3D avec 6 faces carrées
+    
+    // const boxMaterial = new THREE.MeshStandardMaterial({ color: 0xff0000 }); // Rouge
+    // const box = new THREE.Mesh(new THREE.BoxGeometry(5, 5, 5), boxMaterial);
+    // box.position.set(-15, 3, 0);
+    // shapesGroup.add(box);
+
+    // =======================
+    // 🔹 Sphère (SphereGeometry)
+    // =======================
+// 📌 Une sphère est définie par son rayon et son niveau de détail
+    
+    // const sphereMaterial = new THREE.MeshStandardMaterial({ color: 0x00ff00 }); // Vert
+    // const sphere = new THREE.Mesh(new THREE.SphereGeometry(3, 32, 32), sphereMaterial);
+    // sphere.position.set(-10, 3, 10);
+    // shapesGroup.add(sphere);
+
+    // =======================
+    // 🔹 Cylindre (CylinderGeometry)
+    // =======================
+// 📌 Un cylindre possède un rayon haut, un rayon bas, une hauteur et des segments
+    
+    // const cylinderMaterial = new THREE.MeshStandardMaterial({ color: 0x0000ff }); // Bleu
+    // const cylinder = new THREE.Mesh(new THREE.CylinderGeometry(2, 2, 6, 32), cylinderMaterial);
+    // cylinder.position.set(-5, 3, 0);
+    // shapesGroup.add(cylinder);
+
+    // =======================
+    // 🔹 Cône (ConeGeometry)
+    // =======================
+// 📌 Un cône est un cylindre avec un rayon supérieur de 0
+    
+    // const coneMaterial = new THREE.MeshStandardMaterial({ color: 0xffff00 }); // Jaune
+    // const cone = new THREE.Mesh(new THREE.ConeGeometry(2, 5, 32), coneMaterial);
+    // cone.position.set(0, 3, -10);
+    // shapesGroup.add(cone);
+
+    // =======================
+    // 🔹 Tore (TorusGeometry)
+    // =======================
+// 📌 Un tore est un anneau en 3D avec un rayon et une épaisseur
+    
+    // const torusMaterial = new THREE.MeshStandardMaterial({ color: 0xff00ff }); // Rose
+    // const torus = new THREE.Mesh(new THREE.TorusGeometry(5, 1, 16, 100), torusMaterial);
+    // torus.position.set(5, 3, 10);
+    // shapesGroup.add(torus);
+
+    // =======================
+    // 🔹 Plan (PlaneGeometry)
+    // =======================
+// 📌 Un plan est une surface plate utilisée comme sol ou mur
+    
+    // const planeMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, side: THREE.DoubleSide }); // Blanc
+    // const plane = new THREE.Mesh(new THREE.PlaneGeometry(20, 10), planeMaterial);
+    // plane.rotation.x = -Math.PI / 2;
+    // plane.position.set(0, 0, 0);
+    // shapesGroup.add(plane);
+
+    // =======================
+    // 🔹 Cercle (CircleGeometry)
+    // =======================
+// 📌 Un cercle est un disque plat en 3D
+    
+    // const circleMaterial = new THREE.MeshStandardMaterial({ color: 0x00ffff, side: THREE.DoubleSide }); // Cyan
+    // const circle = new THREE.Mesh(new THREE.CircleGeometry(3, 32), circleMaterial);
+    // circle.position.set(10, 1, -10);
+    // circle.rotation.x = -Math.PI / 2;
+    // shapesGroup.add(circle);
+
+    // =======================
+    // 🔹 Anneau (RingGeometry)
+    // =======================
+// 📌 Un anneau est un cercle évidé (avec un trou au centre)
+    
+    // const ringMaterial = new THREE.MeshStandardMaterial({ color: 0xff8800, side: THREE.DoubleSide }); // Orange
+    // const ring = new THREE.Mesh(new THREE.RingGeometry(2, 4, 32), ringMaterial);
+    // ring.position.set(-10, 1, 10);
+    // ring.rotation.x = -Math.PI / 2;
+    // shapesGroup.add(ring);
+
+    // =======================
+    // 🔹 Icosaèdre (IcosahedronGeometry)
+    // =======================
+// 📌 Un polyèdre avec 20 faces triangulaires
+    
+    // const icosahedronMaterial = new THREE.MeshStandardMaterial({ color: 0x6600cc }); // Violet
+    // const icosahedron = new THREE.Mesh(new THREE.IcosahedronGeometry(4), icosahedronMaterial);
+    // icosahedron.position.set(15, 3, 0);
+    // shapesGroup.add(icosahedron);
+
+    // =======================
+    // 🔹 Torus Knot (TorusKnotGeometry)
+    // =======================
+// 📌 Une forme de nœud tordu basé sur un tore
+    
+    // const torusKnotMaterial = new THREE.MeshStandardMaterial({ color: 0xffcc00 }); // Or
+    // const torusKnot = new THREE.Mesh(new THREE.TorusKnotGeometry(3, 1, 100, 16), torusKnotMaterial);
+    // torusKnot.position.set(10, 3, 10);
+    // shapesGroup.add(torusKnot);
+
+
+
 // =======================
 // 🔹 Rappel X, Y, Z :
 // =======================
 
-
 // Position -X : Gauche
-// Position X : Droite
+// Position X  : Droite
 
-// Position Y : Haut/Bas
+// Position Y  : Haut / Bas
 
-// Position -Z : Devant, Avancer
-// Position Z : Arrière, Reculer
-
-
+// Position -Z : Devant (Avancer)
+// Position Z  : Arrière (Reculer)
 
 // ============================================
-// 🔹 Rappel Des Tailles Creation Des Murs :
+// 🔹 Rappel Des Tailles des Formes :
 // ============================================
 
-// Size X : Longueur Du Rectangle
-// Size Y : Largeur Du Rectangle
-// Size Z : Base, Volume Rectangle
+// BoxGeometry (Cube)        : Largeur, Hauteur, Profondeur
+// SphereGeometry (Sphère)    : Rayon, Segments Horizontaux, Segments Verticaux
+// CylinderGeometry (Cylindre): Rayon Haut, Rayon Bas, Hauteur, Segments
+// ConeGeometry (Cône)       : Rayon Base, Hauteur, Segments
+// TorusGeometry (Tore)      : Rayon Principal, Épaisseur
+// PlaneGeometry (Plan)      : Largeur, Hauteur
+// CircleGeometry (Cercle)   : Rayon, Segments
+// RingGeometry (Anneau)     : Rayon Interne, Rayon Externe
+// IcosahedronGeometry       : Rayon
+// TorusKnotGeometry         : Rayon, Épaisseur
+
 
 
 
