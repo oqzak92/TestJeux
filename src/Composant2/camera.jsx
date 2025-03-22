@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef , useState} from 'react';
 import * as THREE from 'three';
 import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls';
 import { createGarage } from './map';
@@ -6,12 +6,16 @@ import { loadModels } from './loadModels';
 import * as CANNON from 'cannon-es';
 import { createBuilding } from './Map/Bulding';
 
-function Camera({ setHealth }) {
+function Camera({ setHealth, setPlayerY   }) {
     const mountRef = useRef(null);
     const gangsterRef = useRef(null);
     const playerBodyRef = useRef(null);
     const controlsRef = useRef(null);
     const cameraHeightRef = useRef(0.9);
+    // Ajout d'une référence pour suivre si le joueur est au sol
+    const isOnGroundRef = useRef(false);
+    // Ajouter un compteur pour stabiliser la détection du sol
+    const groundContactCount = useRef(0);
 
     useEffect(() => {
         // ===== INITIALISATION DE BASE =====
@@ -47,55 +51,57 @@ function Camera({ setHealth }) {
         scene.add(directionalLight);
 
         // ===== PHYSIQUE =====
+        const PLAYER_GROUP = 1;  // Groupe du joueur
+        const GROUND_GROUP = 2;  // Groupe du sol
+
         const world = new CANNON.World();
         world.gravity.set(0, -30, 0); // Gravité plus forte pour éviter le flottement
         world.allowSleep = false;
         world.solver.iterations = 20; // Plus d'itérations pour une meilleure stabilité
 
         // Matériaux
-        const groundMaterial = new CANNON.Material("groundMaterial");
         const playerMaterial = new CANNON.Material("playerMaterial");
+        const groundMaterial = new CANNON.Material("groundMaterial");
         const contactMaterial = new CANNON.ContactMaterial(playerMaterial, groundMaterial, {
-            friction: 0.5,           // Plus de friction pour éviter le glissement
+            friction: 0.7,           // Augmenté pour une meilleure adhérence
             restitution: 0.0,        // Pas de rebond
-            contactEquationStiffness: 1e8,
-            contactEquationRelaxation: 3,
-            frictionEquationStiffness: 1e8 // Meilleure adhérence
+            contactEquationStiffness: 1e7, // Moins rigide pour une meilleure stabilité
+            contactEquationRelaxation: 5,  // Plus de relaxation
+            frictionEquationStiffness: 1e7 // Meilleure adhérence
         });
         world.addContactMaterial(contactMaterial);
 
-        // Sol physique
+        // ===== CRÉATION DU SOL =====
+        const groundShape = new CANNON.Plane();
         const groundBody = new CANNON.Body({
-            mass: 0,
-            type: CANNON.Body.STATIC,
-            shape: new CANNON.Plane(),
-            material: groundMaterial
+            mass: 0, 
+            shape: groundShape,
+            material: groundMaterial,
+            position: new CANNON.Vec3(0, 0, 0), // Position Y = 0 pour le sol
+            collisionFilterGroup: GROUND_GROUP,
+            collisionFilterMask: PLAYER_GROUP
         });
-        groundBody.quaternion.setFromEuler(-Math.PI / 2, 0, 0);
+        groundBody.quaternion.setFromEuler(-Math.PI / 2, 0, 0); // Rotation pour être horizontal
         world.addBody(groundBody);
 
-        // Corps du joueur (cylindre)
-        const playerShape = new CANNON.Cylinder(0.4, 0.4, 1.0, 16);
+        // ===== CRÉATION DU JOUEUR =====
+        // La hauteur du cylindre a été ajustée à 5, donc le centre est à 2.5 unités du sol
+        const playerHeight = 5; // Hauteur explicite pour utiliser dans les calculs
+        const playerRadius = 0.4;
+        
+        const playerShape = new CANNON.Cylinder(playerRadius, playerRadius, playerHeight, 16);
         const playerBody = new CANNON.Body({
             mass: 80,
             material: playerMaterial,
             shape: playerShape,
-            position: new CANNON.Vec3(0, 5, 10),
-            linearDamping: 0.7,       // Plus d'amortissement pour limiter la glisse
+            position: new CANNON.Vec3(0, 6, 10), // Position initiale
+            linearDamping: 0.7, 
             angularDamping: 0.99,
-            fixedRotation: true,      // Empêche le cylindre de tomber
-            allowSleep: false
+            fixedRotation: true, 
+            allowSleep: false,
+            collisionFilterGroup: PLAYER_GROUP,
+            collisionFilterMask: GROUND_GROUP
         });
-
-        // Ajouter une forte friction pour éviter la glisse
-        playerBody.material = playerMaterial;
-
-        // Ajouter des détecteurs de collision
-        playerBody.addEventListener("collide", (e) => {
-            // Optionnellement, tu peux ajouter un son ou un effet visuel lors des collisions
-            console.log("Collision détectée");
-        });
-
         world.addBody(playerBody);
         playerBodyRef.current = playerBody;
 
@@ -103,18 +109,71 @@ function Camera({ setHealth }) {
         const garage = createGarage(world);
         scene.add(garage);
 
-
-        // =======================
-        // 🔹 Ajout de l'Immeuble
-        // =======================
-        // const building = createBuilding(world);
-        // scene.add(building);
-
         loadModels(scene).then(models => {
             if (models.gangster) {
                 gangsterRef.current = models.gangster;
             }
         });
+
+        // ===== SYSTÈME DE DÉTECTION DU SOL AMÉLIORÉ =====
+        
+        // Fonction simplifiée mais fiable pour détecter le sol
+        const isGrounded = () => {
+            // Position attendue quand le joueur est au sol
+            const expectedGroundHeight = 2.5;
+            // Réduire la tolérance pour une détection plus précise
+            const tolerance = 0.2;
+            
+            // Vérification de la position Y et de la vitesse verticale
+            const isNearGround = Math.abs(playerBody.position.y - expectedGroundHeight) < tolerance;
+            const isNotFalling = Math.abs(playerBody.velocity.y) < 0.5; // Seuil plus strict
+            
+            // Création d'un rayon partant du bas du joueur
+            const rayFrom = new CANNON.Vec3(
+                playerBody.position.x, 
+                playerBody.position.y - (playerHeight / 2) + 0.05, // Plus proche du bas
+                playerBody.position.z
+            );
+            
+            const rayTo = new CANNON.Vec3(
+                playerBody.position.x, 
+                playerBody.position.y - (playerHeight / 2) - 0.3, // Distance légèrement augmentée
+                playerBody.position.z
+            );
+        
+            const result = new CANNON.RaycastResult();
+            world.raycastClosest(rayFrom, rayTo, { collisionFilterMask: GROUND_GROUP }, result);
+            
+            // Logique combinée pour une détection plus fiable
+            if (result.hasHit) {
+                groundContactCount.current = 5; // Contact confirmé par raycast
+            } else if (isNearGround && isNotFalling) {
+                groundContactCount.current = Math.min(groundContactCount.current + 1, 5);
+            } else {
+                // Décrémentation plus rapide pour détecter plus vite quand on n'est plus au sol
+                groundContactCount.current = Math.max(groundContactCount.current - 2, 0);
+            }
+            
+            // On est au sol si le compteur est suffisamment élevé
+            isOnGroundRef.current = groundContactCount.current > 1; // Seuil plus bas pour réaction plus rapide
+            
+            return isOnGroundRef.current;
+        };
+        
+        // Détection des collisions avec le sol via événements
+        playerBody.addEventListener("collide", (event) => {
+            if (event.body.collisionFilterGroup === GROUND_GROUP) {
+                // On compte la collision comme possible contact avec le sol
+                groundContactCount.current = Math.min(groundContactCount.current + 1, 5);
+                isOnGroundRef.current = true;
+            }
+        });
+        
+        // Vérification périodique de l'état du sol pour le débogage
+        const groundCheckInterval = setInterval(() => {
+            console.log("Statut du sol: " + (isGrounded() ? "Au sol" : "En l'air"));
+            console.log("Position Y: " + playerBody.position.y.toFixed(2));
+        }, 1000); // Vérification chaque seconde
 
         // ===== CONTRÔLES =====
         const controls = new PointerLockControls(camera, renderer.domElement);
@@ -136,39 +195,32 @@ function Camera({ setHealth }) {
 
         // Vitesses et paramètres de déplacement
         const SPEED = {
-            walk: 70,         // Vitesse de marche réduite
-            run: 140,          // Vitesse de course réduite
-            crouch: 15,       // Vitesse accroupie réduite
-            jump: 1300,        // Force de saut réduite
-            airControl: 0.2,   // Contrôle en l'air limité
+            walk: 70,
+            run: 140,
+            crouch: 15,
+            jump: 1300,
+            airControl: 0.2, // Revenu à la valeur originale
             jumpAirSpeed: 7
         };
 
         // Variables d'état
-        let canJump = false;
-        let isCrouching = false;
         let prevTime = performance.now();
-        let diagonalSpeed = 0.7071; // 1/sqrt(2) pour normaliser la vitesse diagonale
+        let isCrouching = false;
+        let frameCount = 0;
+        let isSpacePressed = false;
 
-        // Fonction pour vérifier si le joueur touche le sol
-        const checkGround = () => {
-            // Réduisez légèrement la longueur du rayon pour une détection plus précise
-            const rayLength = 0.6; // Distance depuis le centre du joueur jusqu'au bas du cylindre + une petite marge
-            const start = new CANNON.Vec3(playerBody.position.x, playerBody.position.y, playerBody.position.z);
-            const end = new CANNON.Vec3(playerBody.position.x, playerBody.position.y - rayLength, playerBody.position.z);
-            const result = new CANNON.RaycastResult();
-            world.raycastClosest(start, end, {}, result);
-            return result.hasHit;
-        };
-
+        // Fonction de saut améliorée
         const Melissa = () => {
-            if (playerBody.position.y <= 2.50) {
-                const jumpForce = new CANNON.Vec3(0, 1300, 0); // Force ajustable
+            // Utilisation de la fonction isGrounded pour une détection fiable
+            if (isGrounded()) {
+                console.log("Saut initié!");
+                const jumpForce = new CANNON.Vec3(0, SPEED.jump, 0);
                 playerBody.applyImpulse(jumpForce, playerBody.position);
-
+            } else {
+                console.log("Impossible de sauter - pas au sol");
             }
-        }
-
+        };
+        
         // Gestion de l'accroupissement
         const crouch = () => {
             if (!isCrouching) {
@@ -176,7 +228,7 @@ function Camera({ setHealth }) {
                 cameraHeightRef.current = 0.150;
 
                 // Modifier la forme du corps (plus petit)
-                const crouchShape = new CANNON.Cylinder(0.4, 0.4, 0.4, 16);
+                const crouchShape = new CANNON.Cylinder(0.4, 0.4, 2.5, 16);
                 playerBody.shapes[0] = crouchShape;
                 playerBody.updateMassProperties();
             }
@@ -188,7 +240,7 @@ function Camera({ setHealth }) {
                 cameraHeightRef.current = 0.9;
 
                 // Revenir à la forme normale
-                const standShape = new CANNON.Cylinder(0.4, 0.4, 1.0, 16);
+                const standShape = new CANNON.Cylinder(0.4, 0.4, playerHeight, 16);
                 playerBody.shapes[0] = standShape;
                 playerBody.updateMassProperties();
             }
@@ -222,17 +274,13 @@ function Camera({ setHealth }) {
                     movement.crouch = true;
                     break;
                 case 'Space':
-
-                    // // Vérifiez explicitement que le joueur touche le sol avant d'autoriser un saut
-                    // movement.jumping = true;
-                    // playerBody.velocity.y = 0; // Réinitialiser la vitesse verticale avant le saut
-                    // playerBody.applyImpulse(
-                    //     new CANNON.Vec3(0, SPEED.jump, 0),
-                    //     playerBody.position
-                    // );
-
-                    Melissa()
-
+                    Melissa();
+                    isSpacePressed = true;  // Active le saut
+                    if(!isGrounded()){
+                        isSpacePressed = false;  // Active le saut 
+                    }else{
+                        isSpacePressed = true;  // Désactive le saut
+                    }
                     break;
             }
         };
@@ -260,41 +308,38 @@ function Camera({ setHealth }) {
                     standUp();
                     movement.crouch = false;
                     break;
+                // case 'Space':
+                //     isSpacePressed = false; // Désactive le saut quand on relâche
+                //     break;
             }
         };
 
         document.addEventListener('keydown', onKeyDown);
         document.addEventListener('keyup', onKeyUp);
 
-        // Intervalle pour l'attaque ou d'autres comportements réguliers
-        const Julien = setInterval(() => {
-            console.log("Ce message s'affiche toutes les 2 secondes !");
-        }, 2000);
-
-
-
-        const Nabil = setInterval(() => {
-            console.log("position X :  " + playerBody.position.x + ", " + "position Y : " + playerBody.position.y + ", " + "Position Z : " + playerBody.position.z)
-        }, 2000);
-
+        // Mise à jour de la position Y du joueur
+        const updatePlayerY = setInterval(() => {
+            if (playerBody) {
+                setPlayerY(playerBody.position.y);
+            }
+        }, 10);
 
         // ===== BOUCLE D'ANIMATION =====
         const animate = () => {
             requestAnimationFrame(animate);
+            frameCount++;
 
-
-
+            console.log(isSpacePressed)
+            
             const deltaTime = Math.min((performance.now() - prevTime) / 1000, 0.1);
             prevTime = performance.now();
 
             // Mise à jour de la physique
             world.step(1 / 60, deltaTime, 3);
-
-            // Vérification du sol
-            canJump = checkGround();
-            if (canJump) {
-                movement.jumping = false;
-            }
+            
+            // Vérification périodique du statut du sol
+            isGrounded(); // Met à jour isOnGroundRef à chaque frame
+            
 
             // Calcul de la direction de déplacement
             const direction = new THREE.Vector3();
@@ -334,41 +379,35 @@ function Camera({ setHealth }) {
                 let speed;
                 if (movement.crouch) {
                     speed = SPEED.crouch;
-                } else if (movement.sprint && canJump) {
+                } else if (movement.sprint) {
                     speed = SPEED.run;
                 } else {
                     speed = SPEED.walk;
                 }
 
-                // Contrôle limité en l'air
-                if (playerBody.position.y >= 2.50) {
-                    // Appliquer moins de force en l'air pour un meilleur contrôle
+                console.log(!isOnGroundRef.current)
+
+
+                // Gestion du mouvement en l'air vs. au sol
+                if (isSpacePressed) {
+                    // Contrôle en l'air quand Espace est pressée
                     speed *= SPEED.airControl;
-
-
-                    // Appliquer une impulsion douce plutôt que de modifier directement la vélocité
-                    const impulse = new CANNON.Vec3(
-                        moveDir.x * speed * deltaTime,
-                        0,
-                        moveDir.z * speed * deltaTime
-                    );
-                    playerBody.applyImpulse(impulse, playerBody.position);
+                    
+                    // Appliquer une force directe (plus simple mais efficace)
+                    playerBody.velocity.x += moveDir.x * speed * deltaTime;
+                    playerBody.velocity.z += moveDir.z * speed * deltaTime;
                 } else {
                     // Au sol, contrôle direct de la vélocité
                     playerBody.velocity.x = moveDir.x * speed;
                     playerBody.velocity.z = moveDir.z * speed;
                 }
-            } else if (canJump) {
-                // Arrêt du mouvement horizontal seulement si on est au sol
-                playerBody.velocity.x *= 0.9; // Décélération progressive
+            } else if (isOnGroundRef.current) {
+                // Arrêt progressif lorsqu'aucune touche n'est pressée et que le joueur est au sol
+                playerBody.velocity.x *= 0.9;
                 playerBody.velocity.z *= 0.9;
-
-                // Si la vitesse est très faible, l'arrêter complètement
-                if (Math.abs(playerBody.velocity.x) < 0.1) playerBody.velocity.x = 0;
-                if (Math.abs(playerBody.velocity.z) < 0.1) playerBody.velocity.z = 0;
             }
 
-            // Limiter la vitesse maximale pour éviter les bugs physiques
+            // Limiter la vitesse maximale horizontale
             const horizontalVelocity = Math.sqrt(
                 playerBody.velocity.x * playerBody.velocity.x +
                 playerBody.velocity.z * playerBody.velocity.z
@@ -401,8 +440,10 @@ function Camera({ setHealth }) {
             if (mountRef.current && renderer.domElement) {
                 mountRef.current.removeChild(renderer.domElement);
             }
+            clearInterval(updatePlayerY);
+            clearInterval(groundCheckInterval);
         };
-    }, [setHealth]);
+    }, [setHealth, setPlayerY]);
 
     return <div ref={mountRef} style={{ width: '100%', height: '100vh' }} />;
 }

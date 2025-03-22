@@ -1,16 +1,20 @@
 import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
 
-
-
-export let groundBody; // Déclare la variable à exporter
-
+export let groundBody; // Declare the variable to export
 
 export function createGarage(physicsWorld) {
     const garage = new THREE.Group();
+    
+    // Define collision groups
+    const GROUND_GROUP = 2;  // Group for all ground/static objects
+    const PLAYER_GROUP = 1;  // Player group (from camera.jsx)
+    
+    // Create ground material (consistent with player material)
+    const groundMaterial = new CANNON.Material("groundMaterial");
 
     // =======================
-    // 🔹 Création du Sol
+    // 🔹 Creating the Floor
     // =======================
     const floorTexture = new THREE.TextureLoader().load('/Texture/TextureSol.jpg');
     floorTexture.wrapS = THREE.RepeatWrapping;
@@ -20,51 +24,55 @@ export function createGarage(physicsWorld) {
     const floorMaterial = new THREE.MeshBasicMaterial({ map: floorTexture, side: THREE.DoubleSide });
     const floor = new THREE.Mesh(new THREE.PlaneGeometry(200, 200), floorMaterial);
     floor.rotation.x = -Math.PI / 2;
+    floor.position.y = 0; // Positionner le sol à y = 0
     garage.add(floor);
 
-    // ✅ Ajout du sol dans la physique
-
-
-
-    const groundBody = new CANNON.Body({
+    // ✅ Adding floor to physics
+    groundBody = new CANNON.Body({
         mass: 0,
         shape: new CANNON.Plane(),
-        position: new CANNON.Vec3(0, 2, 0)
+        position: new CANNON.Vec3(0, 0, 0),
+        material: groundMaterial,
+        collisionFilterGroup: GROUND_GROUP,
+        collisionFilterMask: PLAYER_GROUP
     });
     groundBody.quaternion.setFromEuler(-Math.PI / 2, 0, 0);
     physicsWorld.addBody(groundBody);
 
     // =======================
-    // 🔹 Création des Murs
+    // 🔹 Creating Walls
     // =======================
     const wallTexture = new THREE.TextureLoader().load('/Texture/MurTexture.jpg');
     const wallMaterial = new THREE.MeshBasicMaterial({ map: wallTexture });
 
     const walls = [
-        { size: [20, 5, 0.5], position: [0, 2.5, -10], rotation: [0, 0, 0] },  // Mur arrière
-        { size: [10, 5, 0.5], position: [-10, 2.5, 0], rotation: [0, Math.PI / 2, 0] }, // Mur gauche
-        { size: [10, 5, 0.5], position: [10, 2.5, 0], rotation: [0, -Math.PI / 2, 0] }, // Mur droit
-        { size: [10, 5, 0.5], position: [20, 5, -10], rotation: [0, Math.PI / 2, 0] }, // Mur squat
-        { size: [10, 1, 1.5], position: [0, 1, 20], rotation: [0, 0, 0] }// mur aleatoire 
+        { size: [20, 5, 0.5], position: [0, 2.5, -10], rotation: [0, 0, 0] },  // Back wall
+        { size: [10, 5, 0.5], position: [-10, 2.5, 0], rotation: [0, Math.PI / 2, 0] }, // Left wall
+        { size: [10, 5, 0.5], position: [10, 2.5, 0], rotation: [0, -Math.PI / 2, 0] }, // Right wall
+        { size: [10, 5, 0.5], position: [20, 5, -10], rotation: [0, Math.PI / 2, 0] }, // Squat wall
+        { size: [10, 1, 1.5], position: [0, 1, 20], rotation: [0, 0, 0] }// Random wall 
     ];
 
     walls.forEach(({ size, position, rotation }) => {
-        // 🏗 Mur Three.js
+        // 🏗 Three.js wall
         const wallMesh = new THREE.Mesh(new THREE.BoxGeometry(...size), wallMaterial);
         wallMesh.position.set(...position);
         wallMesh.rotation.set(...rotation);
         garage.add(wallMesh);
 
-        // ✅ Mur physique avec correction de la position
+        // ✅ Physics wall with position correction
         const wallBody = new CANNON.Body({
-            mass: 0, // Statique
-            shape: new CANNON.Box(new CANNON.Vec3(size[0] / 2, size[1] / 2, size[2] / 2)), // Taille divisée par 2 (Cannon utilise des demi-tailles)
+            mass: 0, // Static
+            shape: new CANNON.Box(new CANNON.Vec3(size[0] / 2, size[1] / 2, size[2] / 2)), // Size divided by 2 (Cannon uses half-sizes)
+            material: groundMaterial,
+            collisionFilterGroup: GROUND_GROUP,
+            collisionFilterMask: PLAYER_GROUP
         });
 
-        // 📌 Correction : Ajuster la position
+        // 📌 Correction: Adjust position
         wallBody.position.set(position[0], position[1], position[2]);
 
-        // 📌 Correction : Appliquer la rotation si nécessaire
+        // 📌 Correction: Apply rotation if necessary
         if (rotation[1] !== 0) {
             wallBody.quaternion.setFromEuler(rotation[0], rotation[1], rotation[2]);
         }
@@ -72,42 +80,81 @@ export function createGarage(physicsWorld) {
         physicsWorld.addBody(wallBody);
     });
 
-
-
-
-    //✅ Creation Du toit
+    //✅ Creating the roof
     const roof = new THREE.Mesh(new THREE.BoxGeometry(20, 0.5, 20), wallMaterial);
     roof.position.set(0, 5.25, -5);
     garage.add(roof);
 
-
-
-    //✅ Creation De la porte
+    //✅ Creating the roof physics
     const roofBody = new CANNON.Body({
         mass: 0,
         shape: new CANNON.Box(new CANNON.Vec3(10, 0.25, 10)),
-        position: new CANNON.Vec3(0, 5.25, -5)
+        position: new CANNON.Vec3(0, 5.25, -5),
+        material: groundMaterial,
+        collisionFilterGroup: GROUND_GROUP,
+        collisionFilterMask: PLAYER_GROUP
     });
     physicsWorld.addBody(roofBody);
 
-
-
-
+    //✅ Creating the door
     const door = new THREE.Mesh(new THREE.BoxGeometry(3, 4, 0.5), wallMaterial);
     door.position.set(0, 2, -20);
+    garage.add(door);
 
     const DoorBody = new CANNON.Body({
         mass: 0,
-        shape: new CANNON.Box(new CANNON.Vec3(3, 4, 0.5)),
-        position: new CANNON.Vec3(0, 2, -20)
-    })
-    physicsWorld.addBody(DoorBody)
+        shape: new CANNON.Box(new CANNON.Vec3(1.5, 2, 0.25)),
+        position: new CANNON.Vec3(0, 2, -20),
+        material: groundMaterial,
+        collisionFilterGroup: GROUND_GROUP,
+        collisionFilterMask: PLAYER_GROUP
+    });
+    physicsWorld.addBody(DoorBody);
 
-    garage.add(door);
+    // ✅ Creating a stable platform for the player
+    const platformSize = [10, 0.5, 10]; // Width, thickness, depth
+    const platformMaterial = new THREE.MeshBasicMaterial({ color: 0x00ff00 }); // Green
+    const platform = new THREE.Mesh(new THREE.BoxGeometry(...platformSize), platformMaterial);
+    platform.position.set(30, 2, 30); // Position away from the garage
+    garage.add(platform);
 
+    // ✅ Adding platform physics (Cannon.js)
+    const platformBody = new CANNON.Body({
+        mass: 0, // Static to avoid player movement bugs
+        shape: new CANNON.Box(new CANNON.Vec3(platformSize[0] / 2, platformSize[1] / 2, platformSize[2] / 2)),
+        position: new CANNON.Vec3(30, 2, 30),
+        material: groundMaterial,
+        collisionFilterGroup: GROUND_GROUP,
+        collisionFilterMask: PLAYER_GROUP
+    });
+    physicsWorld.addBody(platformBody);
 
     return garage;
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
