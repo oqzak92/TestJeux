@@ -50,7 +50,6 @@ export function createGarage(physicsWorld) {
         { size: [10, 5, 0.5], position: [-10, 2.5, 0], rotation: [0, Math.PI / 2, 0] }, // Left wall
         { size: [10, 5, 0.5], position: [10, 2.5, 0], rotation: [0, -Math.PI / 2, 0] }, // Right wall
         { size: [10, 5, 0.5], position: [20, 5, -10], rotation: [0, Math.PI / 2, 0] }, // Squat wall
-        { size: [10, 1, 1.5], position: [0, 1, 20], rotation: [0, 0, 0] }// Random wall 
     ];
 
     walls.forEach(({ size, position, rotation }) => {
@@ -80,6 +79,35 @@ export function createGarage(physicsWorld) {
         physicsWorld.addBody(wallBody);
     });
 
+
+    // création obstacle (Three.js)
+    const obstacle = new THREE.Mesh(new THREE.BoxGeometry(10, 1, 1.5), wallMaterial);
+    obstacle.position.set(0, 1, 20);
+    garage.add(obstacle);
+
+    // création obstacle (Cannon.js)
+    const obstacleBody = new CANNON.Body({
+        mass: 0,
+        shape: new CANNON.Box(new CANNON.Vec3(5, 0.5, 0.75)), // Division par 2
+        position: new CANNON.Vec3(0, 1, 20),
+        material: groundMaterial,
+        collisionFilterGroup: GROUND_GROUP,
+        collisionFilterMask: PLAYER_GROUP
+    });
+    physicsWorld.addBody(obstacleBody);
+
+
+
+
+
+    
+
+
+
+
+
+
+
     //✅ Creating the roof
     const roof = new THREE.Mesh(new THREE.BoxGeometry(20, 0.5, 20), wallMaterial);
     roof.position.set(0, 5.25, -5);
@@ -96,6 +124,8 @@ export function createGarage(physicsWorld) {
     });
     physicsWorld.addBody(roofBody);
 
+
+
     //✅ Creating the door
     const door = new THREE.Mesh(new THREE.BoxGeometry(3, 4, 0.5), wallMaterial);
     door.position.set(0, 2, -20);
@@ -110,6 +140,8 @@ export function createGarage(physicsWorld) {
         collisionFilterMask: PLAYER_GROUP
     });
     physicsWorld.addBody(DoorBody);
+
+
 
     // ✅ Creating a stable platform for the player
     const platformSize = [10, 0.5, 10]; // Width, thickness, depth

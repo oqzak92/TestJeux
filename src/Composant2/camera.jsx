@@ -16,6 +16,12 @@ function Camera({ setHealth, setPlayerY   }) {
     const isOnGroundRef = useRef(false);
     // Ajouter un compteur pour stabiliser la détection du sol
     const groundContactCount = useRef(0);
+    const isJumpingRef = useRef(false);
+
+
+
+
+
 
     useEffect(() => {
         // ===== INITIALISATION DE BASE =====
@@ -115,50 +121,78 @@ function Camera({ setHealth, setPlayerY   }) {
             }
         });
 
+
+
+
+
+
+
+
+
+        // ===== Fonction Divers =====
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         // ===== SYSTÈME DE DÉTECTION DU SOL AMÉLIORÉ =====
+
+
+
+
+
+
         
         // Fonction simplifiée mais fiable pour détecter le sol
         const isGrounded = () => {
-            // Position attendue quand le joueur est au sol
             const expectedGroundHeight = 2.5;
-            // Réduire la tolérance pour une détection plus précise
             const tolerance = 0.2;
-            
-            // Vérification de la position Y et de la vitesse verticale
+        
             const isNearGround = Math.abs(playerBody.position.y - expectedGroundHeight) < tolerance;
-            const isNotFalling = Math.abs(playerBody.velocity.y) < 0.5; // Seuil plus strict
-            
-            // Création d'un rayon partant du bas du joueur
+            const isNotFalling = Math.abs(playerBody.velocity.y) < 0.5;
+        
             const rayFrom = new CANNON.Vec3(
                 playerBody.position.x, 
-                playerBody.position.y - (playerHeight / 2) + 0.05, // Plus proche du bas
+                playerBody.position.y - (playerHeight / 2) + 0.05, 
                 playerBody.position.z
             );
-            
+        
             const rayTo = new CANNON.Vec3(
                 playerBody.position.x, 
-                playerBody.position.y - (playerHeight / 2) - 0.3, // Distance légèrement augmentée
+                playerBody.position.y - (playerHeight / 2) - 0.3, 
                 playerBody.position.z
             );
         
             const result = new CANNON.RaycastResult();
             world.raycastClosest(rayFrom, rayTo, { collisionFilterMask: GROUND_GROUP }, result);
-            
-            // Logique combinée pour une détection plus fiable
+        
             if (result.hasHit) {
-                groundContactCount.current = 5; // Contact confirmé par raycast
+                groundContactCount.current = 5;
             } else if (isNearGround && isNotFalling) {
                 groundContactCount.current = Math.min(groundContactCount.current + 1, 5);
             } else {
-                // Décrémentation plus rapide pour détecter plus vite quand on n'est plus au sol
                 groundContactCount.current = Math.max(groundContactCount.current - 2, 0);
             }
-            
-            // On est au sol si le compteur est suffisamment élevé
-            isOnGroundRef.current = groundContactCount.current > 1; // Seuil plus bas pour réaction plus rapide
-            
+        
+            isOnGroundRef.current = groundContactCount.current > 1;
+        
+        
             return isOnGroundRef.current;
         };
+        
         
         // Détection des collisions avec le sol via événements
         playerBody.addEventListener("collide", (event) => {
@@ -169,11 +203,23 @@ function Camera({ setHealth, setPlayerY   }) {
             }
         });
         
-        // Vérification périodique de l'état du sol pour le débogage
-        const groundCheckInterval = setInterval(() => {
-            console.log("Statut du sol: " + (isGrounded() ? "Au sol" : "En l'air"));
-            console.log("Position Y: " + playerBody.position.y.toFixed(2));
-        }, 1000); // Vérification chaque seconde
+
+
+
+
+
+
+
+
+
+
+        
+
+
+
+
+
+
 
         // ===== CONTRÔLES =====
         const controls = new PointerLockControls(camera, renderer.domElement);
@@ -207,20 +253,29 @@ function Camera({ setHealth, setPlayerY   }) {
         let prevTime = performance.now();
         let isCrouching = false;
         let frameCount = 0;
-        let isSpacePressed = false;
 
-        // Fonction de saut améliorée
+
+
         const Melissa = () => {
-            // Utilisation de la fonction isGrounded pour une détection fiable
             if (isGrounded()) {
                 console.log("Saut initié!");
+                isOnGroundRef.current = false;
+                isJumpingRef.current = true; // Marquer comme en train de sauter
+                
                 const jumpForce = new CANNON.Vec3(0, SPEED.jump, 0);
                 playerBody.applyImpulse(jumpForce, playerBody.position);
+                
+                // Réinitialiser l'état de saut après un délai
+                setTimeout(() => {
+                    isJumpingRef.current = false;
+                }, 300); // 300ms est généralement suffisant pour le début du saut
             } else {
                 console.log("Impossible de sauter - pas au sol");
             }
         };
         
+
+
         // Gestion de l'accroupissement
         const crouch = () => {
             if (!isCrouching) {
@@ -234,6 +289,10 @@ function Camera({ setHealth, setPlayerY   }) {
             }
         };
 
+
+
+
+
         const standUp = () => {
             if (isCrouching) {
                 isCrouching = false;
@@ -245,6 +304,12 @@ function Camera({ setHealth, setPlayerY   }) {
                 playerBody.updateMassProperties();
             }
         };
+
+
+
+
+
+
 
         // Gestion des contrôles clavier
         const onKeyDown = (event) => {
@@ -273,17 +338,17 @@ function Camera({ setHealth, setPlayerY   }) {
                     crouch();
                     movement.crouch = true;
                     break;
-                case 'Space':
-                    Melissa();
-                    isSpacePressed = true;  // Active le saut
-                    if(!isGrounded()){
-                        isSpacePressed = false;  // Active le saut 
-                    }else{
-                        isSpacePressed = true;  // Désactive le saut
-                    }
+                    case 'Space':
+                        Melissa();
                     break;
             }
         };
+
+
+
+
+
+
 
         const onKeyUp = (event) => {
             if (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA') return;
@@ -308,11 +373,16 @@ function Camera({ setHealth, setPlayerY   }) {
                     standUp();
                     movement.crouch = false;
                     break;
-                // case 'Space':
-                //     isSpacePressed = false; // Désactive le saut quand on relâche
-                //     break;
             }
         };
+
+
+
+
+
+
+
+
 
         document.addEventListener('keydown', onKeyDown);
         document.addEventListener('keyup', onKeyUp);
@@ -324,13 +394,30 @@ function Camera({ setHealth, setPlayerY   }) {
             }
         }, 10);
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         // ===== BOUCLE D'ANIMATION =====
         const animate = () => {
             requestAnimationFrame(animate);
             frameCount++;
 
-            console.log(isSpacePressed)
             
+
+
             const deltaTime = Math.min((performance.now() - prevTime) / 1000, 0.1);
             prevTime = performance.now();
 
@@ -340,7 +427,7 @@ function Camera({ setHealth, setPlayerY   }) {
             // Vérification périodique du statut du sol
             isGrounded(); // Met à jour isOnGroundRef à chaque frame
             
-
+            // console.log(isOnGroundRef.current ? "AU SOL" : "EN L'AIR");
             // Calcul de la direction de déplacement
             const direction = new THREE.Vector3();
             controls.getObject().getWorldDirection(direction);
@@ -385,19 +472,21 @@ function Camera({ setHealth, setPlayerY   }) {
                     speed = SPEED.walk;
                 }
 
-                console.log(!isOnGroundRef.current)
+                console.log(isOnGroundRef.current)
 
 
                 // Gestion du mouvement en l'air vs. au sol
-                if (isSpacePressed) {
-                    // Contrôle en l'air quand Espace est pressée
+                if ((!isOnGroundRef.current || isJumpingRef.current) && !isCrouching) {
+                    // Contrôle en l'air (sauf si accroupi)
+                    console.log("vitesse air controle");
                     speed *= SPEED.airControl;
-                    
+                
                     // Appliquer une force directe (plus simple mais efficace)
                     playerBody.velocity.x += moveDir.x * speed * deltaTime;
                     playerBody.velocity.z += moveDir.z * speed * deltaTime;
-                } else {
-                    // Au sol, contrôle direct de la vélocité
+                } else if (isOnGroundRef.current || isCrouching) {  
+                    // Au sol ou accroupi, contrôle direct de la vélocité
+                    console.log("vitesse nrml");
                     playerBody.velocity.x = moveDir.x * speed;
                     playerBody.velocity.z = moveDir.z * speed;
                 }
@@ -432,6 +521,26 @@ function Camera({ setHealth, setPlayerY   }) {
 
         animate();
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         // Nettoyage lors du démontage
         return () => {
             document.removeEventListener('keydown', onKeyDown);
@@ -440,8 +549,7 @@ function Camera({ setHealth, setPlayerY   }) {
             if (mountRef.current && renderer.domElement) {
                 mountRef.current.removeChild(renderer.domElement);
             }
-            clearInterval(updatePlayerY);
-            clearInterval(groundCheckInterval);
+                  clearInterval(updatePlayerY);
         };
     }, [setHealth, setPlayerY]);
 
